@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+echo "Phase 1: Extracting metadata from IPK files..."
+python3 metadata_extractor.py
+
+echo "Phase 2: Analyzing and normalizing metadata..."
+python3 analyze_metadata.py
+
+echo "Phase 3: Generating CycloneDX SBOM..."
+python3 generate_cyclonedx_sbom.py
+
+echo "Export: Dumping components and duplicate CPEs to CSV files..."
+python3 dump_components_to_csv.py
+
+echo "Pipeline complete."

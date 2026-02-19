@@ -1,0 +1,13 @@
+lib/
+.venv/
+.git/
+*.json
+*.html
+**/__pycache__
+dev_info/
+*.csv
+**/.claude/
+**/.vscode/
+act
+!config.json
+
