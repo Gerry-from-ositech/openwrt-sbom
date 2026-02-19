@@ -12,10 +12,16 @@ OpenWrt Metadata Extractor - A 3-phase pipeline that extracts package metadata f
 Phase 1: metadata_extractor.py → data.json (raw metadata from IPK files)
 Phase 2: analyze_metadata.py   → enhanced_metadata.json (normalized, grouped)
 Phase 3: generate_cyclonedx_sbom.py → sbom.json (CycloneDX v1.6)
-Export:  dump_components_to_csv.py  → components.csv (database-ready)
+
+
+**Key Principle:**  Each phase is standalone - consumes only the previous phase's output. Outputs are immutable.
+
+Once created the SBOM is the immutable single source of truth for the project
+Data can be extracted in order to feed the Vulnerability Managment scanner
+ 
+Export:  dump_components_to_csv.py  → components.csv, duplicate_cpes.csv (database-ready)
 ```
 
-**Key Principle:** Each phase is standalone - consumes only the previous phase's output. Outputs are immutable.
 
 ## Commands
 
@@ -34,7 +40,7 @@ python3 dump_components_to_csv.py -o custom.csv  # Custom output file
 
 ## Configuration
 
-`config.json` defines the OpenWrt build location:
+`config.json` defines the OpenWrt build location and project detail:
 ```json
 {
     "openwrt_build_root": "OpenWRT21.02-Z8106",
