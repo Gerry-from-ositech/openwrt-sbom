@@ -45,6 +45,38 @@ KNOWN_METADATA = {
         'license': 'GPL-3.0-with-GCC-exception',
         'cpe_id': 'cpe:/a:gnu:gcc',
     },
+    # GCC runtime libraries (from toolchain, NOT musl)
+    'libatomic1': {
+        'license': 'GPL-3.0-with-GCC-exception',
+        'cpe_id': 'cpe:/a:gnu:gcc',
+        'description': 'GCC atomic operations runtime library',
+    },
+    'libgcc1': {
+        'license': 'GPL-3.0-with-GCC-exception',
+        'cpe_id': 'cpe:/a:gnu:gcc',
+        'description': 'GCC runtime library',
+    },
+    'libstdcpp6': {
+        'license': 'GPL-3.0-with-GCC-exception',
+        'cpe_id': 'cpe:/a:gnu:gcc',
+        'description': 'GNU C++ standard library',
+    },
+    # musl runtime libraries (from toolchain)
+    'libc': {
+        'license': 'MIT',
+        'cpe_id': 'cpe:/a:musl-libc:musl',
+        'description': 'musl C standard library',
+    },
+    'libpthread': {
+        'license': 'MIT',
+        'cpe_id': 'cpe:/a:musl-libc:musl',
+        'description': 'POSIX thread library (provided by musl)',
+    },
+    'librt': {
+        'license': 'MIT',
+        'cpe_id': 'cpe:/a:musl-libc:musl',
+        'description': 'POSIX realtime library (provided by musl)',
+    },
     'binutils': {
         'license': 'GPL-3.0+',
         'cpe_id': 'cpe:/a:gnu:binutils',
@@ -117,6 +149,18 @@ KNOWN_METADATA = {
     'libnetfilter-conntrack3': {
         'cpe_id': 'cpe:/a:netfilter:libnetfilter_conntrack',
     },
+    'libnetfilter-queue1': {
+        'cpe_id': 'cpe:/a:netfilter:libnetfilter_queue',
+        'description': 'Netfilter queue library',
+    },
+    'libnetfilter-cttimeout1': {
+        'cpe_id': 'cpe:/a:netfilter:libnetfilter_cttimeout',
+        'description': 'Netfilter connection tracking timeout library',
+    },
+    'libnetfilter-cthelper0': {
+        'cpe_id': 'cpe:/a:netfilter:libnetfilter_cthelper',
+        'description': 'Netfilter connection tracking helper library',
+    },
     'libusb-1.0-0': {
         'cpe_id': 'cpe:/a:libusb:libusb',
     },
@@ -139,10 +183,10 @@ KNOWN_METADATA = {
         'cpe_id': 'cpe:/a:libimobiledevice:libimobiledevice',
     },
     'attr': {
-        'cpe_id': 'cpe:/a:gnu:attr',
+        'cpe_id': 'cpe:/a:attr_project:attr',
     },
     'libattr': {
-        'cpe_id': 'cpe:/a:gnu:attr',
+        'cpe_id': 'cpe:/a:attr_project:attr',
     },
     'libedit': {
         'cpe_id': 'cpe:/a:thrysoee:libedit',
@@ -153,8 +197,80 @@ KNOWN_METADATA = {
     'liburing': {
         'cpe_id': 'cpe:/a:kernel:liburing',
     },
-    'iw': { 
+    'iw': {
        'cpe_id': 'cpe:/a:kernel:iw',
+    },
+    # --- CPEs added based on NVD validation ---
+    'gpsd': {
+        'cpe_id': 'cpe:/a:gpsd_project:gpsd',
+        'description': 'GPS daemon and library',
+    },
+    'gps_daemon': {
+        'cpe_id': 'cpe:/a:gpsd_project:gpsd',
+        'description': 'GPS daemon (alias for gpsd)',
+    },
+    'libcap-ng': {
+        'cpe_id': 'cpe:/a:libcap-ng_project:libcap-ng',
+        'description': 'Next-generation POSIX capabilities library',
+    },
+    'libcap-ng0': {
+        'cpe_id': 'cpe:/a:libcap-ng_project:libcap-ng',
+    },
+    'libdaemon': {
+        'cpe_id': 'cpe:/a:libdaemon_project:libdaemon',
+        'description': 'Lightweight C library for writing UNIX daemons',
+    },
+    'libdaemon0': {
+        'cpe_id': 'cpe:/a:libdaemon_project:libdaemon',
+    },
+    'libnl': {
+        'cpe_id': 'cpe:/a:libnl_project:libnl',
+        'description': 'Netlink protocol library suite',
+    },
+    'libnl-core200': {
+        'cpe_id': 'cpe:/a:libnl_project:libnl',
+        'description': 'Netlink protocol library (core)',
+    },
+    'libnl-genl200': {
+        'cpe_id': 'cpe:/a:libnl_project:libnl',
+        'description': 'Netlink protocol library (generic netlink)',
+    },
+    'libnl-tiny': {
+        'cpe_id': 'cpe:/a:openwrt:libnl-tiny',
+        'description': 'OpenWrt minimal netlink library',
+    },
+    'libnl-tiny1': {
+        'cpe_id': 'cpe:/a:openwrt:libnl-tiny',
+    },
+    'libpopt': {
+        'cpe_id': 'cpe:/a:rpm:popt',
+        'description': 'Command line option parsing library',
+    },
+    'libpopt0': {
+        'cpe_id': 'cpe:/a:rpm:popt',
+    },
+    'libqrencode': {
+        'cpe_id': 'cpe:/a:libqrencode_project:libqrencode',
+        'description': 'QR Code encoding library',
+    },
+    'qrencode': {
+        'cpe_id': 'cpe:/a:libqrencode_project:libqrencode',
+    },
+    'libsqlite3': {
+        'cpe_id': 'cpe:/a:sqlite:sqlite',
+        'description': 'SQLite database library',
+    },
+    'libsqlite3-0': {
+        'cpe_id': 'cpe:/a:sqlite:sqlite',
+    },
+    'sqlite3-cli': {
+        'cpe_id': 'cpe:/a:sqlite:sqlite',
+        'description': 'SQLite command-line interface',
+    },
+    # --- CPEs added based on NVD validation (2026-03) ---
+    'wireless-tools': {
+        'cpe_id': 'cpe:/a:wireless_tools_project:wireless_tools',
+        'description': 'Tools for manipulating Linux Wireless Extensions',
     },
 }
 
@@ -1456,6 +1572,7 @@ def main() -> None:
     output = {
         "project_name": config["project_name"],
         "project_release": config.get("project_release", ""),
+        "openwrt_release": openwrt_data.get("version", "unknown"),
         "build_system": build_system,
         "extraction_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "image_manifest": str(image_manifest.name) if image_manifest else None,

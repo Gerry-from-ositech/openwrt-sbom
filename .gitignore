@@ -3,11 +3,12 @@ lib/
 .git/
 *.json
 *.html
+*.gz
 **/__pycache__
 dev_info/
 *.csv
 **/.claude/
 **/.vscode/
-act
 !config.json
+last
 

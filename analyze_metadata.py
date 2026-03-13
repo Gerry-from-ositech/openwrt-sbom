@@ -64,6 +64,23 @@ def normalize_version(version_str: str) -> tuple[str, Optional[str]]:
     if kernel_hash:
         return (kernel_hash.group(1), kernel_hash.group(2))
 
+    # Version with short git hash and release: 5.9-8fab0c9e-1
+    # Pattern: semver-shorthash-release where shorthash is 7-8 hex chars
+    short_hash = re.match(r'^([\d.]+)-([a-f0-9]{7,8})-(\d+)$', version_str)
+    if short_hash:
+        return (short_hash.group(1), short_hash.group(3))
+
+    # Version with dotted release: 1.9.1-3.1 or 20210419-3.1
+    # The release designation has a dot (e.g., 3.1 meaning revision 3, subrev 1)
+    dotted_release = re.match(r'^([\d.]+)-(\d+\.\d+)$', version_str)
+    if dotted_release:
+        return (dotted_release.group(1), dotted_release.group(2))
+
+    # Date format YYYYMMDD with dotted release: 20210419-3.1-1
+    date_dotted = re.match(r'^(\d{8})-(\d+\.\d+)-(\d+)$', version_str)
+    if date_dotted:
+        return (date_dotted.group(1), date_dotted.group(3))
+
     # Vendor format: 1-r0-45c8168a
     vendor = re.match(r'^(\d+)-r\d+-[a-f0-9]+$', version_str)
     if vendor:
@@ -306,6 +323,11 @@ def build_source_component(source_path: str, members: list[str], packages: dict,
                 desc = desc[:147] + "..."
             artifact["description"] = desc
 
+        # Preserve per-artifact CPE (important for toolchain packages where
+        # GCC libs like libatomic1 have different CPE than musl libs like libc)
+        if pkg.get('cpe_id'):
+            artifact["cpe"] = pkg['cpe_id']
+
         artifacts.append(artifact)
 
     # Sort artifacts: primary first, then by role, then by name
@@ -408,6 +430,7 @@ def analyze_metadata(input_path: Path, output_path: Path, compress: bool = False
         project_metadata = {
             "project_name": data.get("project_name", ""),
             "project_release": data.get("project_release", ""),
+            "openwrt_release": data.get("openwrt_release", ""),
             "build_system": data.get("build_system", ""),
             "extraction_date": data.get("extraction_date", ""),
             "image_manifest": data.get("image_manifest"),
@@ -419,6 +442,7 @@ def analyze_metadata(input_path: Path, output_path: Path, compress: bool = False
         project_metadata = {
             "project_name": "",
             "project_release": "",
+            "openwrt_release": "",
             "build_system": "",
             "extraction_date": "",
             "image_manifest": None,
@@ -460,8 +484,17 @@ def analyze_metadata(input_path: Path, output_path: Path, compress: bool = False
 
     # Build source-based components
     components = []
+    openwrt_release = project_metadata.get("openwrt_release", "")
     for source_path, members in source_groups.items():
         component = build_source_component(source_path, members, packages, libc_cpe)
+        # Add openwrt:release property if available
+        if openwrt_release:
+            if "properties" not in component:
+                component["properties"] = []
+            component["properties"].insert(0, {
+                "name": "openwrt:release",
+                "value": openwrt_release
+            })
         components.append(component)
 
     # Assign kernel CPE to kmod-* components
@@ -530,6 +563,7 @@ def analyze_metadata(input_path: Path, output_path: Path, compress: bool = False
     output = {
         "project_name": project_metadata["project_name"],
         "project_release": project_metadata["project_release"],
+        "openwrt_release": project_metadata["openwrt_release"],
         "build_system": project_metadata["build_system"],
         "extraction_date": project_metadata["extraction_date"],
         "analysis_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

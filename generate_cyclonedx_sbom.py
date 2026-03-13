@@ -54,6 +54,29 @@ HASH_ALG_MAP = {
 }
 
 
+def update_cpe_version(cpe_id: str, upstream_version: str) -> str:
+    """
+    Update a CPE ID with the actual upstream version instead of wildcard.
+
+    CPE 2.3 format: cpe:2.3:part:vendor:product:version:update:...
+    The version is at index 5 (0-based).
+
+    Args:
+        cpe_id: The CPE string (may have wildcard version)
+        upstream_version: The normalized upstream version from Phase 2
+                         (e.g., "2.4.8" not "2.4.8.git-2020-10-03-3")
+    """
+    if not cpe_id or not upstream_version:
+        return cpe_id
+
+    parts = cpe_id.split(':')
+    if len(parts) >= 6:
+        # Only update if current version is wildcard
+        if parts[5] == '*':
+            parts[5] = upstream_version
+    return ':'.join(parts)
+
+
 def create_bom_ref(purl: str | None, name: str, version: str) -> str:
     """Create a unique bom-ref from purl or name+version."""
     if purl:
@@ -227,8 +250,23 @@ def create_binary_component(artifact: dict, source_component: dict) -> Component
     # Add source component properties (patches, patched_cves, static_libs)
     properties.update(create_component_properties(source_component))
 
-    # Get CPE from source component
-    cpe = source_component.get("cpe")
+    # Get CPE - prefer artifact-specific CPE over source component CPE
+    # This is important for toolchain packages where GCC libs (libatomic1)
+    # have different CPE than musl libs (libc)
+    cpe = artifact.get("cpe") or source_component.get("cpe")
+
+    # Update CPE version using the normalized upstream version from Phase 2
+    # This avoids issues with version formats like "2.4.8.git-2020-10-03-3"
+    # where simple split('-')[0] would give "2.4.8.git" instead of "2.4.8"
+    if cpe:
+        # Get upstream version from source component properties
+        upstream_version = None
+        for prop in source_component.get("properties", []):
+            if prop.get("name") == "openwrt:version_upstream":
+                upstream_version = prop.get("value")
+                break
+        if upstream_version:
+            cpe = update_cpe_version(cpe, upstream_version)
 
     # Get licenses from source component
     licenses_data = source_component.get("licenses", [])

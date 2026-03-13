@@ -2,16 +2,25 @@
 """
 Dump SBOM components to CSV format.
 
-Reads sbom.json and extracts package data (name, version, licenses, cpe).
+Reads sbom.json and extracts package data to sbom_packages.csv.
 For components sharing the same CPE, only the primary component is included
-in the CSV output. Duplicate CPE mappings are printed separately.
+in the CSV output, with related package names in the cpe_group column.
+
+Output columns: pkgname,version,licenses,cpe,patched_cves,cpe_group
 
 Usage:
     python3 dump_components_to_csv.py [OPTIONS]
 
 Options:
     --input, -i FILE    Input SBOM file (default: sbom.json)
-    --output, -o FILE   Output CSV file (default: components.csv)
+    --output, -o FILE   Output CSV file (default: sbom_packages.csv)
+    
+    
+The extracted data in the sbom_packages.csv file can be mapped to tables in the project database
+
+"pkgname,version,licenses,cpe"  ->  Table packages        pkgname,version,licenses,cpe,0,
+"pkgname,,,,patched_cves"       ->  Table patched_cves    pkgname,patched_cves
+"pkgname,,,,,,cpe_group"        ->  Table cpe_groups      pkgname,pkg_list
 """
 
 import argparse
@@ -43,6 +52,15 @@ def extract_license(component: dict) -> str:
         return "unknown"
 
     return " AND ".join(license_strs)
+
+
+def extract_patched_cves(component: dict) -> str:
+    """Extract patched CVEs from component properties."""
+    props = component.get("properties", [])
+    for prop in props:
+        if prop.get("name") == "openwrt:patched_cves":
+            return prop.get("value", "")
+    return ""
 
 
 def get_primary_component(components: list[dict], is_kernel_group: bool = False) -> dict:
@@ -105,26 +123,6 @@ def find_kernel_cpe(components: list[dict]) -> tuple[str, str | None]:
     return None, None
 
 
-def write_duplicate_cpes_csv(duplicate_cpes: dict, output_path: Path, kernel_cpe: str) -> None:
-    """
-    Write duplicate CPEs to a CSV file.
-
-    Args:
-        duplicate_cpes: dict mapping CPE -> list of package names
-        output_path: path to write CSV file
-        kernel_cpe: kernel CPE to exclude from output
-    """
-    with open(output_path, 'w') as f:
-        f.write("cpe_id,pkglist\n")
-        for cpe in sorted(duplicate_cpes.keys()):
-            # Skip the Linux kernel CPE
-            if cpe == kernel_cpe:
-                continue
-            pkg_list = ",".join(duplicate_cpes[cpe])
-            # Quote the pkglist since it contains commas
-            f.write(f'{cpe},"{pkg_list}"\n')
-
-
 def dump_components_to_csv(input_path: Path, output_path: Path) -> int:
     """
     Dump SBOM components to CSV.
@@ -167,7 +165,7 @@ def dump_components_to_csv(input_path: Path, output_path: Path) -> int:
             no_cpe_components.append(comp)
 
     # Build main component dict and duplicate CPE dict
-    component_dict = {}  # name -> "version,license,cpe"
+    component_dict = {}  # name -> (version, license, cpe, patched_cves, cpe_group)
     duplicate_cpes = {}  # cpe -> [name1, name2, ...]
 
     # Process components with CPE
@@ -175,28 +173,34 @@ def dump_components_to_csv(input_path: Path, output_path: Path) -> int:
         is_kernel = (cpe == kernel_cpe)
         if len(comps) > 1:
             # Multiple components share this CPE - track as duplicates
-            duplicate_cpes[cpe] = sorted([c.get("name", "unknown") for c in comps])
+            group_names = sorted([c.get("name", "unknown") for c in comps])
+            duplicate_cpes[cpe] = group_names
             # Only include primary component in main dict
             primary = get_primary_component(comps, is_kernel_group=is_kernel)
             name = primary.get("name", "unknown")
             version = primary.get("version", "unknown")
             license_str = extract_license(primary)
-            component_dict[name] = f"{version},{license_str},{cpe}"
+            patched_cves = extract_patched_cves(primary)
+            # cpe_group contains all related package names (including primary)
+            cpe_group = ",".join(group_names)
+            component_dict[name] = (version, license_str, cpe, patched_cves, cpe_group)
         else:
-            # Single component with this CPE
+            # Single component with this CPE - no cpe_group
             comp = comps[0]
             name = comp.get("name", "unknown")
             version = comp.get("version", "unknown")
             license_str = extract_license(comp)
-            component_dict[name] = f"{version},{license_str},{cpe}"
+            patched_cves = extract_patched_cves(comp)
+            component_dict[name] = (version, license_str, cpe, patched_cves, "")
 
     # Process components without CPE
     for comp in no_cpe_components:
         name = comp.get("name", "unknown")
         version = comp.get("version", "unknown")
         license_str = extract_license(comp)
+        patched_cves = extract_patched_cves(comp)
         cpe = "unknown"
-        component_dict[name] = f"{version},{license_str},{cpe}"
+        component_dict[name] = (version, license_str, cpe, patched_cves, "")
 
     # Sort by name (alphabetically ascending)
     sorted_names = sorted(component_dict.keys())
@@ -205,29 +209,28 @@ def dump_components_to_csv(input_path: Path, output_path: Path) -> int:
     print(f"\nWriting CSV to {output_path}")
     with open(output_path, 'w') as f:
         # Header
-        f.write("pkgname,version,licenses,cpe,flag,comment\n")
+        f.write("pkgname,version,licenses,cpe,patched_cves,cpe_group\n")
 
         # Data rows
         for name in sorted_names:
-            csv_values = component_dict[name]
-            version, license_str, cpe = csv_values.split(",", 2)
-            f.write(f"{name},{version},{license_str},{cpe},0,\n")
+            version, license_str, cpe, patched_cves, cpe_group = component_dict[name]
+            # Quote patched_cves if it contains commas
+            if patched_cves and ',' in patched_cves:
+                patched_cves = f'"{patched_cves}"'
+            # Quote cpe_group if it contains commas
+            if cpe_group and ',' in cpe_group:
+                cpe_group = f'"{cpe_group}"'
+            f.write(f"{name},{version},{license_str},{cpe},{patched_cves},{cpe_group}\n")
 
     print(f"Wrote {len(sorted_names)} components to CSV")
 
-    # Write duplicate CPEs CSV (excluding kernel CPE)
-    dup_cpes_path = output_path.parent / "duplicate_cpes.csv"
-    write_duplicate_cpes_csv(duplicate_cpes, dup_cpes_path, kernel_cpe)
-    # Count non-kernel duplicate CPEs
-    non_kernel_dups = {k: v for k, v in duplicate_cpes.items() if k != kernel_cpe}
-    print(f"Wrote {len(non_kernel_dups)} duplicate CPE entries to {dup_cpes_path}")
-
     # Print statistics
     print(f"\nStatistics:")
-    print(f"  Components with unique CPE: {len(cpe_groups) - len(duplicate_cpes)}")
-    print(f"  Components with shared CPE: {sum(len(v) for v in duplicate_cpes.values())}")
+    print(f"  Total unique CPEs: {len(cpe_groups)}")
+    print(f"  CPEs with single component: {len(cpe_groups) - len(duplicate_cpes)}")
+    print(f"  CPEs with multiple components: {len(duplicate_cpes)}")
+    print(f"  Components in shared CPE groups: {sum(len(v) for v in duplicate_cpes.values())}")
     print(f"  Components without CPE: {len(no_cpe_components)}")
-    print(f"  Unique CPEs with multiple components: {len(duplicate_cpes)}")
 
     # Print duplicate CPEs dict
     print(f"\nDuplicate CPEs (components sharing same CPE):")
@@ -250,13 +253,13 @@ def main():
         '--output', '-o',
         type=Path,
         default=None,
-        help='Output CSV file (default: components.csv in script directory)'
+        help='Output CSV file (default: sbom_packages.csv in script directory)'
     )
     args = parser.parse_args()
 
     script_dir = Path(__file__).parent
     input_path = args.input or (script_dir / 'sbom.json')
-    output_path = args.output or (script_dir / 'components.csv')
+    output_path = args.output or (script_dir / 'sbom_packages.csv')
 
     if not input_path.exists():
         print(f"Error: Input file not found: {input_path}")
